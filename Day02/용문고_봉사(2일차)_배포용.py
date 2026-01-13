@@ -2,6 +2,7 @@ import numpy as np
 
 class PongEnv:
     def __init__(self, render_mode=None, target_fps = 60):
+        import pygame
         """
         환경 초기화
         
@@ -36,6 +37,9 @@ class PongEnv:
         self.font = None
         self.small_font = None
         
+        #배경이미지
+        self.background_img = pygame.image.load("background_img.jpg")
+        
         if render_mode == 'human':
             try:
                 import pygame
@@ -54,7 +58,7 @@ class PongEnv:
         self.ball_x = 0.5  # 화면 중앙
         self.ball_y = 0.1  # 화면 상단
         self.paddle_x = 0.5  # 패들 중앙
-        self.ball_dx = np.random.choice([-0.01, 0.01])  # 좌우 랜덤
+        self.ball_dx = np.random.choice([-0.03, 0.03])  # 좌우 랜덤
         self.ball_dy = 0.01  # 아래로 이동
         
         self.score = 0
@@ -75,8 +79,11 @@ class PongEnv:
         info : 추가 정보 (딕셔너리)
         """
         # ✏️ TODO 1: 패들 이동 로직 구현
-        # action이 0이면 왼쪽으로 0.01 이동
-        # action이 2이면 오른쪽으로 0.01 이동
+        if action == 0:
+            self.paddle_x -= 0.01
+        elif action == 2:
+            self.paddle_x += 0.01 
+            
         # hint: self.paddle_x를 증가 또는 감소시키세요
         
         
@@ -86,9 +93,8 @@ class PongEnv:
         self.paddle_x = np.clip(self.paddle_x, 0.0, 1.0)
 
         # ✏️ TODO 2: 공 이동 로직 구현
-        # 공의 x 위치에 dx 속도를 더하기
-        # 공의 y 위치에 dy 속도를 더하기
-        # hint: self.ball_x += ?, self.ball_y += ?
+        self.ball_x += self.ball_dx
+        self.ball_y += self.ball_dy
         
         
         
@@ -96,6 +102,9 @@ class PongEnv:
         done = False
 
         # ✏️ TODO 3: 좌우 벽 충돌 구현
+        if self.ball_x <= 0.0 or self.ball_x >= 1.0 :
+            self.ball_dx *= -1
+            
         # 공의 x 위치가 0.0 이하이거나 1.0 이상이면
         # ball_dx의 부호를 반대로 바꾸기
         # hint: self.ball_dx *= -1
@@ -104,6 +113,9 @@ class PongEnv:
         
         
         # ✏️ TODO 4: 위쪽 벽 충돌 구현
+        if self.ball_y <= 0.0 or self.ball_y >= 1.0 :
+             self.ball_dy *= -1
+            
         # 공의 y 위치가 0.0 이하이면
         # ball_dy의 부호를 반대로 바꾸기
         
@@ -111,9 +123,18 @@ class PongEnv:
         
 
         # ✏️ TODO 5: 패들 충돌 및 점수 시스템 구현
-        # 공의 y 위치가 0.95 이상이면:
-        #   - 공과 패들의 거리가 paddle_width/2 이하이면:
-        #     * ball_dy의 부호를 반대로 (공이 튕김)
+        
+        if self.ball_y >= 0.95:
+            if abs(self.ball_x - self.paddle_x) <= self.paddle_width/2:
+                self.ball_dy *=-1
+                self.score += 1
+                reward = 1.0
+                
+            else:
+                reward = -1.0
+                done = True
+                
+        
         #     * score를 1 증가
         #     * reward를 1.0으로 설정
         #   - 그렇지 않으면 (공을 놓침):
@@ -145,7 +166,7 @@ class PongEnv:
         """
         ✏️ TODO 6: AI에게 줄 입력값(관측값) 추출
         현재 상태를 numpy 배열로 반환
-        
+        return np.array([self.ball_x, self.ball_y, self.paddle_x, self.ball_dx, self.ball_dy])
         반환할 값들:
         - self.ball_x: 공의 x 위치
         - self.ball_y: 공의 y 위치
@@ -176,7 +197,7 @@ class PongEnv:
         import pygame
         
         # 배경
-        self.screen.fill((0, 0, 0))
+        self.screen.blit(self.background_img, (0, 0))
         
         # 패들 (아래쪽, 가로로)
         paddle_pixel_x = int(self.paddle_x * self.width)
@@ -188,16 +209,14 @@ class PongEnv:
         # 공
         ball_pixel_x = int(self.ball_x * self.width)
         ball_pixel_y = int(self.ball_y * self.height)
-        pygame.draw.rect(self.screen, (255, 255, 255),
+        pygame.draw.rect(self.screen, (254, 102, 221),
                         (ball_pixel_x - 7, ball_pixel_y - 7, 15, 15))
         
         # 점수 표시
         score_text = self.font.render(str(self.score), True, (255, 255, 255))
         self.screen.blit(score_text, (self.width // 2 - 30, 50))
         
-        # Miss 횟수 표시
-        self.screen.blit(miss_text, (self.width - 150, 20))
-        
+                
         pygame.display.flip()
         
         if self.clock:
